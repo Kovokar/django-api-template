@@ -37,7 +37,7 @@ check:
 	$(MANAGE) check
 
 test:
-	$(MANAGE) test tests
+	DJANGO_SETTINGS_MODULE=config.settings.test $(MANAGE) test
 
 startup-test: check
 	docker compose config --quiet
