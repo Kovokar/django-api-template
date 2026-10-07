@@ -15,20 +15,24 @@ DEBUG = False
 
 ALLOWED_HOSTS = []
 
-INSTALLED_APPS = [
-    # apps nativos do Django
+DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    
-    # dependências externas;
-    "rest_framework",
-    
-    # apps locais do projeto.
 ]
+
+THIRD_PARTY_APPS = [
+    "rest_framework",
+]
+
+LOCAL_APPS = [
+    "apps.core.apps.CoreConfig",
+]
+
+INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
