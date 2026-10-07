@@ -1,23 +1,16 @@
 # Django API Template
 
-Template reutilizável para iniciar APIs com Django e Django REST Framework sobre uma base de infraestrutura consistente. O repositório concentra configuração, dependências e ferramentas comuns para que novos projetos possam começar pelas regras de negócio, sem recriar o bootstrap técnico.
+Template reutilizável para APIs Django com infraestrutura local, configurações por ambiente e fundações de domínio prontas para extensão. O projeto preserva as APIs nativas do Django e do Django REST Framework, evitando camadas genéricas sem casos concretos de uso.
 
-## Estado atual: V1
+## Versões
 
-A V1 entrega o bootstrap da infraestrutura: Django executado no host com uv, PostgreSQL e Redis executados pelo Docker Compose, configuração por variáveis de ambiente, migrations e testes básicos de inicialização. Integrações como autenticação, OpenAPI, Celery e cache com Redis ainda não fazem parte desta versão. O snapshot completo está em [`docs/versions/v1.md`](docs/versions/v1.md).
+### V1 — Bootstrap da infraestrutura
 
-## Arquitetura local
+A V1 estabeleceu a infraestrutura mínima do template: Python e dependências gerenciados pelo uv, Django e DRF no host, PostgreSQL e Redis no Docker Compose, configuração por variáveis de ambiente, volumes persistentes, health checks e testes básicos de inicialização. Consulte o [snapshot arquitetural da V1](docs/versions/v1.md).
 
-```text
-Linux host
-├── uv + Python 3.13
-│   └── Django 5.2 + Django REST Framework 3.16
-└── Docker Compose
-    ├── PostgreSQL 17
-    └── Redis 8
-```
+### V2 — Fundação da aplicação
 
-O Django não roda em container nesta versão. Essa abordagem preserva a integração direta com IDE, debugger e hot reload durante o desenvolvimento.
+A V2 adiciona uma aplicação headless, settings separados, models abstratas compartilhadas, custom User técnico, separação entre conta e pessoa natural e endereços com catálogo geográfico. Não existem Django Admin, templates, sessões, páginas HTML ou autenticação HTTP nesta versão. Consulte o [snapshot arquitetural da V2](docs/versions/v2.md).
 
 ## Stack
 
@@ -28,34 +21,54 @@ O Django não roda em container nesta versão. Essa abordagem preserva a integra
 | Django REST Framework | 3.16.x |
 | PostgreSQL | 17.x |
 | Redis | 8.x |
-| psycopg | 3.x |
+| psycopg | >=3.2,<4 |
 | redis-py | >=6,<8 |
 | django-environ | >=0.12,<1 |
 
-As versões Python resolvidas estão registradas em `uv.lock`.
+As versões resolvidas são registradas em `uv.lock`, que deve permanecer versionado.
+
+## Arquitetura local
+
+```text
+Linux host
+├── uv + Python 3.13
+│   └── Django 5.2 + DRF 3.16
+└── Docker Compose
+    ├── PostgreSQL 17
+    └── Redis 8
+```
+
+Django executa diretamente no host para preservar debugger, integração com IDE e hot reload. Apenas PostgreSQL e Redis executam em containers.
 
 ## Pré-requisitos
 
-- Linux
-- [uv](https://docs.astral.sh/uv/)
-- Docker com Docker Compose
-- GNU Make, opcional para usar os atalhos do `Makefile`
+- Linux;
+- [uv](https://docs.astral.sh/uv/);
+- Docker com Docker Compose;
+- GNU Make, opcional.
 
-## Inicialização rápida com Make
+## Inicialização rápida
 
-Crie o arquivo de ambiente e preencha ao menos `DJANGO_SECRET_KEY` e `POSTGRES_PASSWORD`:
+Crie o arquivo de ambiente:
 
 ```bash
 cp .env.example .env
 ```
 
-Prepare e valide todo o ambiente:
+Preencha pelo menos:
+
+```dotenv
+DJANGO_SECRET_KEY=uma-chave-local-segura
+POSTGRES_PASSWORD=uma-senha-local
+```
+
+Prepare e valide o ambiente:
 
 ```bash
 make init
 ```
 
-Esse comando sincroniza as dependências, inicia PostgreSQL e Redis, aguarda os health checks, aplica as migrations e executa os testes de configuração e conectividade.
+Esse comando sincroniza o ambiente pelo `uv.lock`, inicia PostgreSQL e Redis, aplica as migrations e executa checks e testes.
 
 Inicie o servidor:
 
@@ -63,18 +76,16 @@ Inicie o servidor:
 make run
 ```
 
-A aplicação ficará disponível em `http://127.0.0.1:8000/`.
+Como não existem endpoints HTTP na V2, acessar a raiz retorna `404` até que uma aplicação futura registre suas URLs.
 
 ## Inicialização manual
-
-O uso do Make é opcional. Os comandos equivalentes são:
 
 ```bash
 uv sync --locked
 docker compose up -d --wait
 uv run python manage.py migrate
-uv run python manage.py test tests
 uv run python manage.py check
+DJANGO_SETTINGS_MODULE=config.settings.test uv run python manage.py test --noinput
 uv run python manage.py runserver
 ```
 
@@ -82,7 +93,8 @@ uv run python manage.py runserver
 
 | Variável | Finalidade | Exemplo local |
 | --- | --- | --- |
-| `DJANGO_SECRET_KEY` | Chave criptográfica do Django | o menino ta com fome e pepe moreno insiste que ele continue a cantar |
+| `DJANGO_SECRET_KEY` | Chave criptográfica do Django | valor privado |
+| `DJANGO_ALLOWED_HOSTS` | Hosts aceitos em produção, separados por vírgula | `api.example.com` |
 | `POSTGRES_DB` | Nome do banco | `app` |
 | `POSTGRES_USER` | Usuário do banco | `app` |
 | `POSTGRES_PASSWORD` | Senha do banco | valor privado |
@@ -92,55 +104,152 @@ uv run python manage.py runserver
 | `REDIS_PORT` | Porta publicada pelo Redis | `6379` |
 | `REDIS_DB` | Banco lógico do Redis | `0` |
 
-O `.env` local é ignorado pelo Git. Apenas `.env.example`, sem segredos, deve ser versionado.
+O `.env` é local e ignorado pelo Git. Apenas `.env.example`, sem segredos, deve ser versionado.
 
-## Comandos disponíveis
-
-```bash
-make help
-```
+## Comandos Make
 
 | Comando | Ação |
 | --- | --- |
 | `make init` | Prepara e valida todo o ambiente |
-| `make sync` | Sincroniza dependências usando o lock |
+| `make sync` | Sincroniza dependências pelo `uv.lock` |
 | `make infra-up` | Inicia PostgreSQL e Redis e aguarda os health checks |
-| `make infra-down` | Remove os containers preservando os volumes |
+| `make infra-down` | Remove containers preservando volumes |
 | `make status` | Exibe o estado dos containers |
-| `make migrate` | Aplica as migrations |
-| `make check` | Executa os checks internos do Django |
-| `make test` | Executa os testes básicos de configuração |
-| `make startup-test` | Testa Django, PostgreSQL e Redis em execução |
+| `make migrate` | Aplica migrations |
+| `make check` | Executa o check com settings locais |
+| `make check-settings` | Valida settings local, test e production |
+| `make test` | Executa a suíte completa |
+| `make startup-test` | Valida Django, PostgreSQL, Redis e migrations |
 | `make run` | Inicia o servidor de desenvolvimento |
 
-## Persistência e reset
+## Settings
 
-PostgreSQL e Redis usam volumes nomeados. Parar e recriar os containers não remove os dados:
-
-```bash
-make infra-down
-make infra-up
+```text
+config/settings/
+├── base.py
+├── local.py
+├── test.py
+└── production.py
 ```
 
-Para apagar completamente os dados locais e recriar o ambiente:
+- `manage.py` usa `config.settings.local`;
+- a suíte usa `config.settings.test`;
+- WSGI e ASGI usam `config.settings.production`;
+- produção exige `DJANGO_ALLOWED_HOSTS`;
+- todos os ambientes compartilham banco, aplicações e segurança básica definidos em `base.py`.
+
+## Aplicação headless
+
+A V2 não habilita:
+
+- Django Admin;
+- templates;
+- messages;
+- staticfiles;
+- sessões;
+- Browsable API do DRF.
+
+O DRF renderiza somente JSON e não possui classes de autenticação configuradas. O custom User autentica internamente por `username` e senha, mas ainda não existe endpoint de login, JWT ou emissão de token.
+
+O primeiro usuário técnico pode ser criado quando necessário:
+
+```bash
+uv run python manage.py createsuperuser
+```
+
+## Models compartilhadas
+
+O app `core` fornece models abstratas:
+
+- `TimeStampedModel`: `created_at` e `updated_at`;
+- `ActorStampedModel`: identificação textual simples em `created_by` e `updated_by`;
+- `SoftDeleteModel`: `deleted_at`, `objects`, `all_objects`, `restore()` e `hard_delete()`;
+- `BaseModel`: composição padrão das três anteriores.
+
+Use `BaseModel` como padrão. Faça herança seletiva quando uma entidade não puder usar algum desses comportamentos.
+
+Soft delete possui limitações deliberadas:
+
+- não existe cascade lógico automático;
+- registros excluídos continuam ocupando constraints únicas;
+- `on_delete` é acionado somente por exclusão física;
+- campos de ator não substituem uma solução completa de auditoria.
+
+## Contas e pessoas
+
+```text
+accounts.User ← people.NaturalPerson
+```
+
+`accounts.User` representa a identidade técnica: username, senha, e-mail, estado da conta, grupos e permissões. Ele herda de `AbstractUser`, remove os campos civis `first_name` e `last_name` e permanece compatível com `authenticate()`, `get_user_model()` e `createsuperuser`.
+
+`people.NaturalPerson` representa a pessoa real. Ela possui `full_name`, `birth_date`, idade calculada e uma relação um-para-um protegida com o User. Um User pode existir sem pessoa natural.
+
+## Endereços
+
+```text
+Country
+└── State
+    └── City
+        └── BaseAddress (abstrata)
+            └── NaturalPersonAddress
+```
+
+`Country`, `State` e `City` são catálogos protegidos por FKs e constraints de unicidade. Eles possuem timestamps e atores, mas não soft delete. Para inativação futura, prefira um estado explícito em vez de ocultar uma localidade ainda referenciada.
+
+`BaseAddress` contém cidade, código postal, logradouro, número, complemento e bairro. `NaturalPersonAddress` liga esses dados a uma pessoa por `ForeignKey`, permitindo múltiplos endereços. A propriedade `full_address` monta a representação completa sem persistir dados geográficos duplicados.
+
+A relação permite `0..N` endereços no banco. Uma regra exigindo ao menos um endereço deve ser aplicada futuramente no fluxo de criação da pessoa.
+
+## Migrations
+
+As migrations fazem parte do código e devem ser versionadas:
+
+```bash
+uv run python manage.py makemigrations --check --dry-run
+uv run python manage.py migrate
+uv run python manage.py showmigrations
+```
+
+Ao migrar de uma instalação local da V1 para a V2, recrie o banco porque a V1 aplicou migrations usando `auth.User`:
 
 ```bash
 docker compose down -v
 make init
 ```
 
-> O uso de `-v` remove permanentemente os dados armazenados nos volumes locais.
+Esse comando remove permanentemente os dados dos volumes locais.
+
+## Persistência
+
+Parar os containers preserva os dados:
+
+```bash
+make infra-down
+make infra-up
+```
+
+Para reiniciar completamente:
+
+```bash
+docker compose down -v
+make init
+```
 
 ## Estrutura
 
 ```text
 .
-├── config/              # Configuração do projeto Django
-├── docs/versions/       # Snapshots arquiteturais por versão
-├── tests/               # Testes básicos de inicialização
-├── .env.example         # Contrato das variáveis de ambiente
-├── compose.yaml         # PostgreSQL e Redis
-├── Makefile             # Atalhos de desenvolvimento
+├── apps/
+│   ├── accounts/
+│   ├── addresses/
+│   ├── core/
+│   └── people/
+├── config/settings/
+├── docs/versions/
+├── tests/
+├── compose.yaml
+├── Makefile
 ├── manage.py
 ├── pyproject.toml
 └── uv.lock
@@ -148,16 +257,20 @@ make init
 
 ## Troubleshooting
 
-- **Docker indisponível:** confirme que o daemon está ativo com `docker info`.
-- **Porta 5432 ou 6379 ocupada:** altere a porta correspondente no `.env` ou encerre o serviço conflitante.
-- **Credenciais do PostgreSQL alteradas:** volumes existentes preservam as credenciais usadas na primeira inicialização. Para um ambiente descartável, faça o reset com `docker compose down -v`.
-- **Dependências divergentes:** execute `make sync` para restaurar o ambiente conforme o `uv.lock`.
-- **Serviço não saudável:** consulte `make status` e `docker compose logs postgres redis`.
+- **Migration inconsistente após a V1:** remova os volumes locais e recrie o banco.
+- **Porta 5432 ou 6379 ocupada:** altere a porta no `.env` ou encerre o serviço conflitante.
+- **Credenciais PostgreSQL alteradas:** volumes existentes preservam as credenciais originais; recrie-os se forem descartáveis.
+- **Settings de produção falhando:** configure `DJANGO_ALLOWED_HOSTS`.
+- **Serviço não saudável:** execute `make status` e consulte `docker compose logs postgres redis`.
+- **Dependências divergentes:** execute `make sync`.
 
-## Decisões atuais
+## Fora do escopo da V2
 
-- PostgreSQL é o único banco configurado; SQLite não é usado.
-- Redis está disponível, mas ainda não está conectado ao cache, sessões ou filas.
-- Os settings permanecem em um único arquivo na V1.
-- Não existem abstrações genéricas de repository, service ou CRUD.
-- A aplicação Django ainda não é executada em Docker.
+- endpoints de autenticação e JWT;
+- serializers e ViewSets;
+- OpenAPI e CORS;
+- Celery e integração do Redis;
+- padrão global de erros;
+- CI/CD;
+- Docker da aplicação Django;
+- abstrações genéricas de repository, service ou CRUD.

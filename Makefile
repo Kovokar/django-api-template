@@ -3,7 +3,7 @@ MANAGE := $(UV_RUN) python manage.py
 
 .DEFAULT_GOAL := help
 
-.PHONY: help sync infra-up infra-down status migrate check test startup-test init run
+.PHONY: help sync infra-up infra-down status migrate check check-settings test startup-test init run
 
 help:
 	@echo "Comandos disponíveis:"
@@ -14,7 +14,8 @@ help:
 	@echo "  make status        Exibe o estado dos containers"
 	@echo "  make migrate       Aplica as migrations do Django"
 	@echo "  make check         Executa os checks internos do Django"
-	@echo "  make test          Executa os testes básicos de configuração"
+	@echo "  make check-settings Valida os settings local, test e production"
+	@echo "  make test          Executa a suíte completa de testes"
 	@echo "  make startup-test  Valida Django, PostgreSQL e Redis em execução"
 	@echo "  make run           Inicia o servidor de desenvolvimento"
 
@@ -36,10 +37,15 @@ migrate:
 check:
 	$(MANAGE) check
 
+check-settings:
+	$(MANAGE) check --settings=config.settings.local
+	$(MANAGE) check --settings=config.settings.test
+	DJANGO_ALLOWED_HOSTS=example.com $(MANAGE) check --settings=config.settings.production
+
 test:
 	DJANGO_SETTINGS_MODULE=config.settings.test $(MANAGE) test --noinput
 
-startup-test: check
+startup-test: check-settings
 	docker compose config --quiet
 	docker compose exec -T postgres sh -c 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
 	docker compose exec -T redis redis-cli ping
