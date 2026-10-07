@@ -15,6 +15,22 @@ class StartupConfigurationTests(SimpleTestCase):
     def test_django_rest_framework_is_installed(self):
         self.assertIn("rest_framework", settings.INSTALLED_APPS)
 
+    def test_project_is_headless(self):
+        disabled_apps = {
+            "django.contrib.admin",
+            "django.contrib.messages",
+            "django.contrib.sessions",
+            "django.contrib.staticfiles",
+        }
+
+        self.assertTrue(disabled_apps.isdisjoint(settings.INSTALLED_APPS))
+        self.assertEqual(settings.TEMPLATES, [])
+        self.assertEqual(settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"], [])
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"],
+            ["rest_framework.renderers.JSONRenderer"],
+        )
+
     def test_project_entrypoints_use_config(self):
         self.assertEqual(settings.ROOT_URLCONF, "config.urls")
         self.assertEqual(settings.WSGI_APPLICATION, "config.wsgi.application")
