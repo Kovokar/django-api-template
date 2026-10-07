@@ -6,12 +6,13 @@ from django.core.exceptions import FieldDoesNotExist
 from django.core.management import call_command
 from django.test import TestCase
 
-from apps.users.models import User
+from apps.accounts.models import User
 
 
 class UserModelTests(TestCase):
-    def test_custom_user_is_configured(self):
+    def test_custom_user_is_configured_for_username_login(self):
         self.assertIs(get_user_model(), User)
+        self.assertEqual(User.USERNAME_FIELD, "username")
         self.assertEqual(User._meta.pk.get_internal_type(), "BigAutoField")
 
     def test_user_contains_only_technical_identity_fields(self):
@@ -27,12 +28,13 @@ class UserModelTests(TestCase):
         self.assertEqual(user.get_full_name(), "")
         self.assertEqual(user.get_short_name(), "")
 
-    def test_create_user_hashes_password_and_authenticates(self):
+    def test_create_user_hashes_password_and_authenticates_by_username(self):
         user = User.objects.create_user(username="technical-user", password="safe-password")
 
         self.assertNotEqual(user.password, "safe-password")
         self.assertTrue(user.check_password("safe-password"))
         self.assertEqual(authenticate(username="technical-user", password="safe-password"), user)
+        self.assertIsNone(authenticate(username="technical-user", password="wrong-password"))
 
     def test_create_superuser_sets_permission_flags(self):
         user = User.objects.create_superuser(username="admin", password="safe-password")
