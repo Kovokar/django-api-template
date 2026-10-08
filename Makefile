@@ -3,7 +3,7 @@ MANAGE := $(UV_RUN) python manage.py
 
 .DEFAULT_GOAL := help
 
-.PHONY: help sync infra-up infra-down status migrate check check-settings test startup-test init run
+.PHONY: help sync infra-up infra-down status migrate check check-settings test startup-test flush-expired-tokens init run
 
 help:
 	@echo "Comandos disponíveis:"
@@ -17,6 +17,7 @@ help:
 	@echo "  make check-settings Valida os settings local, test e production"
 	@echo "  make test          Executa a suíte completa de testes"
 	@echo "  make startup-test  Valida Django, PostgreSQL e Redis em execução"
+	@echo "  make flush-expired-tokens Remove tokens JWT expirados da blacklist"
 	@echo "  make run           Inicia o servidor de desenvolvimento"
 
 sync:
@@ -52,6 +53,9 @@ startup-test: check-settings
 	$(MANAGE) migrate --check
 	$(MANAGE) shell -c "from django.db import connection; connection.ensure_connection(); print('PostgreSQL via Django: OK')"
 	$(UV_RUN) python -c "from pathlib import Path; import environ, redis; env = environ.Env(); environ.Env.read_env(Path('.env')); client = redis.Redis(host=env('REDIS_HOST'), port=env.int('REDIS_PORT', default=6379), db=env.int('REDIS_DB', default=0)); assert client.ping(); print('Redis via Python: OK')"
+
+flush-expired-tokens:
+	$(MANAGE) flushexpiredtokens
 
 init:
 	$(MAKE) sync

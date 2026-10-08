@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.test import SimpleTestCase
 
@@ -25,11 +27,29 @@ class StartupConfigurationTests(SimpleTestCase):
 
         self.assertTrue(disabled_apps.isdisjoint(settings.INSTALLED_APPS))
         self.assertEqual(settings.TEMPLATES, [])
-        self.assertEqual(settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"], [])
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"],
+            ["rest_framework_simplejwt.authentication.JWTAuthentication"],
+        )
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"],
+            ["rest_framework.permissions.IsAuthenticated"],
+        )
         self.assertEqual(
             settings.REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"],
             ["rest_framework.renderers.JSONRenderer"],
         )
+
+    def test_jwt_policy_is_configured(self):
+        self.assertIn("rest_framework_simplejwt.token_blacklist", settings.INSTALLED_APPS)
+        self.assertFalse(settings.is_overridden("AUTHENTICATION_BACKENDS"))
+        self.assertEqual(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"], timedelta(minutes=15))
+        self.assertEqual(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"], timedelta(days=7))
+        self.assertTrue(settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"])
+        self.assertTrue(settings.SIMPLE_JWT["BLACKLIST_AFTER_ROTATION"])
+        self.assertFalse(settings.SIMPLE_JWT["UPDATE_LAST_LOGIN"])
+        self.assertEqual(settings.SIMPLE_JWT["ALGORITHM"], "HS256")
+        self.assertEqual(settings.SIMPLE_JWT["AUTH_HEADER_TYPES"], ("Bearer",))
 
     def test_project_entrypoints_use_config(self):
         self.assertEqual(settings.ROOT_URLCONF, "config.urls")
