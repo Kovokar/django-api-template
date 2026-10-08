@@ -63,7 +63,10 @@ class GeographicModelsTests(TestCase):
 
 class NaturalPersonAddressTests(TestCase):
     def setUp(self):
-        user = User.objects.create_user(username="person-with-address", password="safe-password")
+        user = User.objects.create_user(
+            email="person-with-address@example.com",
+            password="safe-password",
+        )
         self.person = NaturalPerson.objects.create(user=user, full_name="Address Test Person")
         country = Country.objects.create(code="BR", name="Brazil")
         state = State.objects.create(country=country, code="CE", name="Ceara")

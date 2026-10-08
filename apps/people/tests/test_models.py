@@ -11,9 +11,12 @@ from apps.people.models import NaturalPerson
 
 class NaturalPersonModelTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="person-user", password="safe-password")
+        self.user = User.objects.create_user(
+            email="person@example.com",
+            password="safe-password",
+        )
 
-    def test_person_is_linked_to_technical_user(self):
+    def test_person_is_linked_to_user(self):
         person = NaturalPerson.objects.create(user=self.user, full_name="Test Person")
 
         self.assertEqual(self.user.natural_person, person)
