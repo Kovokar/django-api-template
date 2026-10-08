@@ -12,6 +12,10 @@ A V1 estabeleceu a infraestrutura mínima do template: Python e dependências ge
 
 A V2 adiciona uma aplicação headless, settings separados, models abstratas compartilhadas, custom User técnico, separação entre conta e pessoa natural e endereços com catálogo geográfico. Não existem Django Admin, templates, sessões, páginas HTML ou autenticação HTTP nesta versão. Consulte o [snapshot arquitetural da V2](docs/versions/v2.md).
 
+### V2.1.0 — Autenticação JWT
+
+A V2.1.0 adiciona autenticação JWT exclusivamente por email e senha, tokens de acesso e renovação, rotação com blacklist e proteção global dos endpoints. Consulte o [snapshot arquitetural da V2.1.0](docs/versions/v2.1.md).
+
 ## Stack
 
 | Componente | Versão suportada |
@@ -24,6 +28,7 @@ A V2 adiciona uma aplicação headless, settings separados, models abstratas com
 | psycopg | >=3.2,<4 |
 | redis-py | >=6,<8 |
 | django-environ | >=0.12,<1 |
+| Simple JWT | >=5.5,<6 |
 
 As versões resolvidas são registradas em `uv.lock`, que deve permanecer versionado.
 
@@ -59,6 +64,7 @@ Preencha pelo menos:
 
 ```dotenv
 DJANGO_SECRET_KEY=uma-chave-local-segura
+JWT_SIGNING_KEY=outra-chave-local-segura
 POSTGRES_PASSWORD=uma-senha-local
 ```
 
@@ -76,7 +82,7 @@ Inicie o servidor:
 make run
 ```
 
-Como não existem endpoints HTTP na V2, acessar a raiz retorna `404` até que uma aplicação futura registre suas URLs.
+Os endpoints de autenticação ficam disponíveis sob `/api/v1/auth/`. A raiz continua retornando `404`.
 
 ## Inicialização manual
 
@@ -95,6 +101,7 @@ uv run python manage.py runserver
 | --- | --- | --- |
 | `DJANGO_SECRET_KEY` | Chave criptográfica do Django | valor privado |
 | `DJANGO_ALLOWED_HOSTS` | Hosts aceitos em produção, separados por vírgula | `api.example.com` |
+| `JWT_SIGNING_KEY` | Chave independente usada para assinar JWTs | valor privado |
 | `POSTGRES_DB` | Nome do banco | `app` |
 | `POSTGRES_USER` | Usuário do banco | `app` |
 | `POSTGRES_PASSWORD` | Senha do banco | valor privado |
@@ -120,6 +127,7 @@ O `.env` é local e ignorado pelo Git. Apenas `.env.example`, sem segredos, deve
 | `make check-settings` | Valida settings local, test e production |
 | `make test` | Executa a suíte completa |
 | `make startup-test` | Valida Django, PostgreSQL, Redis e migrations |
+| `make flush-expired-tokens` | Remove tokens JWT expirados da blacklist |
 | `make run` | Inicia o servidor de desenvolvimento |
 
 ## Settings
@@ -149,7 +157,7 @@ A V2 não habilita:
 - sessões;
 - Browsable API do DRF.
 
-O DRF renderiza somente JSON e não possui classes de autenticação configuradas. O custom User autentica internamente por `username` e senha, mas ainda não existe endpoint de login, JWT ou emissão de token.
+O DRF renderiza somente JSON, autentica requisições com JWT e exige usuário autenticado por padrão. Endpoints públicos devem declarar `AllowAny` explicitamente.
 
 O primeiro usuário técnico pode ser criado quando necessário:
 
@@ -181,9 +189,29 @@ Soft delete possui limitações deliberadas:
 accounts.User ← people.NaturalPerson
 ```
 
-`accounts.User` representa a identidade técnica: username, senha, e-mail, estado da conta, grupos e permissões. Ele herda de `AbstractUser`, remove os campos civis `first_name` e `last_name` e permanece compatível com `authenticate()`, `get_user_model()` e `createsuperuser`.
+`accounts.User` representa a identidade técnica: email, senha, estado da conta, grupos e permissões. Ele herda de `AbstractUser`, remove `username` e os campos civis `first_name` e `last_name` e permanece compatível com `authenticate()`, `get_user_model()` e `createsuperuser`. O email é a única forma de login, é obrigatório e único sem diferenciar maiúsculas.
 
 `people.NaturalPerson` representa a pessoa real. Ela possui `full_name`, `birth_date`, idade calculada e uma relação um-para-um protegida com o User. Um User pode existir sem pessoa natural.
+
+## Autenticação JWT
+
+Obtenha um par de tokens usando email e senha:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/token/ \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user@example.com","password":"secret"}'
+```
+
+Use o access token em endpoints protegidos:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Renove o par enviando o refresh atual para `POST /api/v1/auth/token/refresh/`. A renovação rotaciona o refresh e invalida o anterior. Access tokens duram 15 minutos e refresh tokens, 7 dias.
+
+Em produção, disponibilize a API somente por HTTPS e execute periodicamente `make flush-expired-tokens` para remover registros expirados da blacklist.
 
 ## Endereços
 
