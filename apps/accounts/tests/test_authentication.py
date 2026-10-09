@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.response import Response
 from rest_framework.test import APIClient, APIRequestFactory
@@ -17,6 +18,7 @@ class JWTAuthenticationTests(TestCase):
     refresh_url = "/api/v1/auth/token/refresh/"
 
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = User.objects.create_user(
             email="User@example.com",
@@ -54,6 +56,13 @@ class JWTAuthenticationTests(TestCase):
         self.assertEqual(inactive_user.status_code, 401)
         self.assertEqual(wrong_password.data, missing_user.data)
         self.assertEqual(missing_user.data, inactive_user.data)
+
+    def test_login_is_throttled_after_five_attempts_per_minute(self):
+        responses = [self.obtain_tokens(password="wrong-password") for _ in range(6)]
+
+        self.assertTrue(all(response.status_code == 401 for response in responses[:5]))
+        self.assertEqual(responses[5].status_code, 429)
+        self.assertIn("Retry-After", responses[5])
 
     def test_access_token_authenticates_a_protected_view(self):
         access = self.obtain_tokens().data["access"]

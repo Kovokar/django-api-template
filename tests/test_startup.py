@@ -39,6 +39,7 @@ class StartupConfigurationTests(SimpleTestCase):
             settings.REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"],
             ["rest_framework.renderers.JSONRenderer"],
         )
+        self.assertEqual(settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["login"], "5/minute")
 
     def test_jwt_policy_is_configured(self):
         self.assertIn("rest_framework_simplejwt.token_blacklist", settings.INSTALLED_APPS)
