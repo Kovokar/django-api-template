@@ -16,6 +16,10 @@ A V2 adiciona uma aplicação headless, settings separados, models abstratas com
 
 A V2.1.0 adiciona autenticação JWT exclusivamente por email e senha, tokens de acesso e renovação, rotação com blacklist e proteção global dos endpoints. Consulte o [snapshot arquitetural da V2.1.0](docs/versions/v2.1.md).
 
+### V2.2.0 — Throttle de login
+
+A V2.2.0 limita o endpoint de login a cinco requisições por minuto e por IP, respondendo com `429 Too Many Requests` quando o limite é excedido. Consulte o [snapshot arquitetural da V2.2.0](docs/versions/v2.2.md).
+
 ## Stack
 
 | Componente | Versão suportada |
